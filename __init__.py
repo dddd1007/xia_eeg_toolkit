@@ -19,6 +19,7 @@
 # Preprocess EEG data
 #
 
+
 def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, savefile_path,
                           input_event_dict: dict, rm_chans_list: list, eog_chans: list, sub_num: int,
                           tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30, ica_z_thresh=1.96,
@@ -100,20 +101,42 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 # Show the result
 #
 
-
-def compare_evoke_wave(processed_data_list: list, chan_name, cond1, cond2):
+def generate_evokes(processed_data_list: list, cond1, cond2):
     import mne
+    conditions = [cond1, cond2]
+    evokes = {}
+    for c in conditions:
+        evokes[c] = [mne.read_epochs(d)[c].average()
+                      for d in processed_data_list]
+    return evokes
+
+def generate_diff_evokes(evokes):
+    import mne
+    diff_evokes = []
+    for i in range(len(evokes[list(evokes.keys())[0]])):
+        diff_evokes.append(mne.combine_evoked(
+            [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], weights=[1, -1]))
+    return diff_evokes
+
+def generate_mean_evokes(evokes):
+    import mne
+    mean_evokes = []
+    for i in range(len(evokes[list(evokes.keys())[0]])):
+        mean_evokes.append(mne.combine_evoked(
+            [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], weights='nave'))
+    return mean_evokes
+
+def compare_evoke_wave(evokes, chan_name, vlines="auto"):
+    import mne
+    cond1 = list(evokes.keys())[0]
+    cond2 = list(evokes.keys())[1]
     roi = [chan_name]
     # Get evokes
     # Define parameters
-    conditions = [cond1, cond2]
-    evokeds = {}
-    for c in conditions:
-        evokeds[c] = [mne.read_epochs(d)[c].average()
-                      for d in processed_data_list]
     color_dict = {cond1: 'blue', cond2: 'red'}
     linestyle_dict = {cond1: 'solid', cond2: 'dashed'}
-    evoke_plot = mne.viz.plot_compare_evokeds(evokeds,
+    evoke_plot = mne.viz.plot_compare_evokeds(evokes,
+                                              vlines=vlines,
                                               legend='lower right',
                                               picks=roi, show_sensors='upper right',
                                               ci=False,
@@ -123,22 +146,12 @@ def compare_evoke_wave(processed_data_list: list, chan_name, cond1, cond2):
     return evoke_plot
 
 
-def show_difference_wave(processed_data_list, chan_name, cond1, cond2):
+def show_difference_wave(evokes_diff, chan_name):
     import mne
     roi = [chan_name]
-    conditions = [cond1, cond2]
-    evokeds = {}
-    for c in conditions:
-        evokeds[c] = [mne.read_epochs(d)[c].average()
-                      for d in processed_data_list]
-    for i in range(len(processed_data_list)):
-        evokeds_diff = mne.combine_evoked(
-            [evokeds[cond1][i], evokeds[cond2][i]], weights=[1, -1])
-    difference_wave_plot = mne.viz.plot_compare_evokeds({'diff_evoke': evokeds_diff},
+    difference_wave_plot = mne.viz.plot_compare_evokeds({'diff_evoke': evokes_diff},
                                                         picks=roi,
                                                         show_sensors='upper right',
                                                         combine='mean',
-                                                        title=chan_name + "Difference Wave :" + cond1 + "vs" + cond2)
+                                                        title=chan_name + "Difference Wave")
     return difference_wave_plot
-
-    # return difference_wave_plot
