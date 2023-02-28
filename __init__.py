@@ -101,13 +101,18 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 # Show the result
 #
 
-def generate_evokes(processed_data_list: list, cond1, cond2):
+def generate_evokes(processed_data_list:list, condition_list:list):
     import mne
-    conditions = [cond1, cond2]
-    evokes = {}
-    for c in conditions:
-        evokes[c] = [mne.read_epochs(d)[c].average()
-                      for d in processed_data_list]
+    if len(condition_list) == 2:
+        evokes = {}
+        for c in condition_list:
+            evokes[c] = [mne.read_epochs(d)[c].average()
+                          for d in processed_data_list]
+    elif len(condition_list) == 1:
+        evokes = {}
+        cond = condition_list[0]
+        evokes = [mne.read_epochs(d)[cond].average()
+                          for d in processed_data_list]
     return evokes
 
 def generate_diff_evokes(evokes):
@@ -155,3 +160,47 @@ def show_difference_wave(evokes_diff, chan_name):
                                                         combine='mean',
                                                         title=chan_name + "Difference Wave")
     return difference_wave_plot
+
+def calc_erp_ttest(processed_data_list:list, condition_list:list, time_window:list, direction:str, ch_name='eeg'):
+    from scipy.stats import ttest_rel
+    import numpy as np
+    import mne
+    condition = condition_list[0]
+    if ch_name == "eeg":
+        ch_nums = 64
+    else:
+        ch_nums = 1
+    # condition 1
+    condition = condition_list[0]
+    cond1_array = np.zeros((ch_nums, len(processed_data_list)))
+    for i in range(len(processed_data_list)):
+        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average().get_data(tmin = time_window[0], tmax=time_window[1])
+        evoke_mean = evoke_data.mean(axis=1)
+        cond1_array[:, i] = evoke_mean
+
+    # condition 2
+    condition = condition_list[1]
+    cond2_array = np.zeros((ch_nums, len(processed_data_list)))
+    for i in range(len(processed_data_list)):
+        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average().get_data(tmin = time_window[0], tmax=time_window[1])
+        evoke_mean = evoke_data.mean(axis=1)
+        cond2_array[:, i] = evoke_mean
+
+    # ttest
+    tt_results = np.zeros(cond1_array.shape[0])
+    for chan_num in range(cond1_array.shape[0]):
+        cond1_data = cond1_array[chan_num - 1, :]
+        cond2_data = cond2_array[chan_num - 1, :]
+        foo = ttest_rel(cond1_data, cond2_data, alternative=direction)
+        tt_results[chan_num - 1] = foo[1]
+
+    if ch_name == "eeg":
+        chan_name = mne.read_epochs(processed_data_list[i])[condition].info['ch_names'][0:63]
+    else:
+        chan_name = ch_name
+
+    tt_results_dict = dict(zip(chan_name, tt_results))
+
+    return tt_results_dict
+
+
