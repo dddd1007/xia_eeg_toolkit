@@ -23,7 +23,7 @@
 def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, savefile_path,
                           input_event_dict: dict, rm_chans_list: list, eog_chans: list, sub_num: int,
                           tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30, ica_z_thresh=1.96,
-                          export_to_mne=True):
+                          export_to_mne=True, do_autoreject=True):
     import os
     from autoreject import (get_rejection_threshold, AutoReject)
     import mne
@@ -63,8 +63,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     muscle_indices, muscle_scores = ica.find_bads_muscle(
         raw, threshold=ica_z_thresh)
     ica.exclude = muscle_indices + eog_indices
-    ica.save(os.path.join(savefile_path, 'mne_fif', 'ICA',
-             'sub'+str(sub_num) + '-ica.fif'), overwrite=True)
+    ica.save(os.path.join(savefile_path, 'mne_fif', 'ICA', 'sub'+str(sub_num) + '-ica.fif'), overwrite=True)
     ica_data = ica.apply(filter_data.copy())
 
     # Rereference
@@ -85,35 +84,46 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
                         baseline=(None, 0),  # reject=reject_para,
                         verbose=False, detrend=0, preload=True)
 
-    # Autoreject
-    ar = AutoReject(n_jobs=6)
-    ar.fit(epochs)  # fit on a few epochs to save time
-    epochs_ar, reject_log = ar.transform(epochs, return_log=True)
-
-    # Create evoked data
-    conditions = [i for i in input_event_dict.values()]
+    # Save epoch data without reject
     if export_to_mne:
         epochs_filename = os.path.join(
-            savefile_path, "mne_fif", "sub" + str(sub_num).zfill(2) + '-epo.fif')
-        epochs_ar.save(epochs_filename, overwrite=True)
+            savefile_path, "mne_fif", "sub" + str(sub_num).zfill(2) + '-before-reject-epo.fif')
+        epochs.save(epochs_filename, overwrite=True)
+    
+    if do_autoreject:
+        # Autoreject
+        ar = AutoReject(n_jobs=6)
+        ar.fit(epochs)  # fit on a few epochs to save time
+        epochs_ar, reject_log = ar.transform(epochs, return_log=True)
+    
+        # Save rejected data
+        if export_to_mne:
+            epochs_ar_filename = os.path.join(
+                savefile_path, "mne_fif", "sub" + str(sub_num).zfill(2) + '-epo.fif')
+            epochs_ar.save(epochs_ar_filename, overwrite=True)
+            reject_filename = os.path.join(
+                savefile_path, "mne_fif", "sub" + str(sub_num).zfill(2) + '-reject-log.npz')
+            reject_log.save(reject_filename, overwrite=True)
 
 #
 # Show the result
 #
 
-def generate_evokes(processed_data_list:list, condition_list:list):
+
+def generate_evokes(processed_data_list: list, condition_list: list):
     import mne
     if len(condition_list) == 2:
         evokes = {}
         for c in condition_list:
             evokes[c] = [mne.read_epochs(d)[c].average()
-                          for d in processed_data_list]
+                         for d in processed_data_list]
     elif len(condition_list) == 1:
         evokes = {}
         cond = condition_list[0]
         evokes = [mne.read_epochs(d)[cond].average()
-                          for d in processed_data_list]
+                  for d in processed_data_list]
     return evokes
+
 
 def generate_diff_evokes(evokes):
     import mne
@@ -123,6 +133,7 @@ def generate_diff_evokes(evokes):
             [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], weights=[1, -1]))
     return diff_evokes
 
+
 def generate_mean_evokes(evokes):
     import mne
     mean_evokes = []
@@ -130,6 +141,7 @@ def generate_mean_evokes(evokes):
         mean_evokes.append(mne.combine_evoked(
             [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], weights='nave'))
     return mean_evokes
+
 
 def compare_evoke_wave(evokes, chan_name, vlines="auto"):
     import mne
@@ -161,7 +173,8 @@ def show_difference_wave(evokes_diff, chan_name):
                                                         title=chan_name + "Difference Wave")
     return difference_wave_plot
 
-def calc_erp_ttest(processed_data_list:list, condition_list:list, time_window:list, direction:str, ch_name='eeg'):
+
+def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window: list, direction: str, ch_name='eeg'):
     from scipy.stats import ttest_rel
     import numpy as np
     import mne
@@ -174,7 +187,8 @@ def calc_erp_ttest(processed_data_list:list, condition_list:list, time_window:li
     condition = condition_list[0]
     cond1_array = np.zeros((ch_nums, len(processed_data_list)))
     for i in range(len(processed_data_list)):
-        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average().get_data(tmin = time_window[0], tmax=time_window[1])
+        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average(
+        ).get_data(tmin=time_window[0], tmax=time_window[1])
         evoke_mean = evoke_data.mean(axis=1)
         cond1_array[:, i] = evoke_mean
 
@@ -182,7 +196,8 @@ def calc_erp_ttest(processed_data_list:list, condition_list:list, time_window:li
     condition = condition_list[1]
     cond2_array = np.zeros((ch_nums, len(processed_data_list)))
     for i in range(len(processed_data_list)):
-        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average().get_data(tmin = time_window[0], tmax=time_window[1])
+        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average(
+        ).get_data(tmin=time_window[0], tmax=time_window[1])
         evoke_mean = evoke_data.mean(axis=1)
         cond2_array[:, i] = evoke_mean
 
@@ -195,12 +210,11 @@ def calc_erp_ttest(processed_data_list:list, condition_list:list, time_window:li
         tt_results[chan_num - 1] = foo[1]
 
     if ch_name == "eeg":
-        chan_name = mne.read_epochs(processed_data_list[i])[condition].info['ch_names'][0:63]
+        chan_name = mne.read_epochs(processed_data_list[i])[
+            condition].info['ch_names'][0:63]
     else:
         chan_name = ch_name
 
     tt_results_dict = dict(zip(chan_name, tt_results))
 
     return tt_results_dict
-
-
