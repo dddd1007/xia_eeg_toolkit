@@ -87,7 +87,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     # Save epoch data without reject
     if export_to_mne:
         epochs_filename = os.path.join(
-            savefile_path, "mne_fif", "sub" + str(sub_num).zfill(2) + '-before-reject-epo.fif')
+            savefile_path, "mne_fif", "before_reject", "sub" + str(sub_num).zfill(2) + '-before-reject-epo.fif')
         epochs.save(epochs_filename, overwrite=True)
     
     if do_autoreject:
@@ -99,10 +99,10 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
         # Save rejected data
         if export_to_mne:
             epochs_ar_filename = os.path.join(
-                savefile_path, "mne_fif", "sub" + str(sub_num).zfill(2) + '-epo.fif')
+                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-epo.fif')
             epochs_ar.save(epochs_ar_filename, overwrite=True)
             reject_filename = os.path.join(
-                savefile_path, "mne_fif", "sub" + str(sub_num).zfill(2) + '-reject-log.npz')
+                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-reject-log.npz')
             reject_log.save(reject_filename, overwrite=True)
 
 #
