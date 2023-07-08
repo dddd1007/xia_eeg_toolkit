@@ -1,3 +1,10 @@
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '6'
+
+from autoreject import (get_rejection_threshold, AutoReject)
+import mne
+import numpy as np
+
 # Parameters example
 # raw_data_path = "/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/input/eeg/sub1.cdt"
 # savefile_path = "/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/output"
@@ -19,16 +26,10 @@
 # Preprocess EEG data
 #
 
-
 def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, savefile_path,
                           input_event_dict: dict, rm_chans_list: list, eog_chans: list, sub_num: int,
-                          tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30, ica_z_thresh=1.96,
-                          export_to_mne=True, do_autoreject=True):
-    import os
-    from autoreject import (get_rejection_threshold, AutoReject)
-    import mne
-    import numpy as np
-    os.environ['OPENBLAS_NUM_THREADS'] = '6'
+                          tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30, ica_z_thresh=1.96, ref_channels='average',
+                          export_to_mne=True, export_to_eeglab=True, do_autoreject=True):
 
     # Import data
     raw = mne.io.read_raw_curry(raw_data_path, preload=True)
@@ -55,7 +56,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 
     # compute ICA
     ica = mne.preprocessing.ICA(n_components=.999, method='picard')
-    ica.fit(filter_data)
+    ica.fit(raw)
 
     # Exclude blink artifact components
     eog_indices, eog_scores = ica.find_bads_eog(
@@ -67,7 +68,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     ica_data = ica.apply(filter_data.copy())
 
     # Rereference
-    ica_data.set_eeg_reference(ref_channels='average')
+    ica_data.set_eeg_reference(ref_channels)
 
     # Import Event
     new_event = mne.read_events(event_file_path)
@@ -89,6 +90,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
         epochs_filename = os.path.join(
             savefile_path, "mne_fif", "before_reject", "sub" + str(sub_num).zfill(2) + '-before-reject-epo.fif')
         epochs.save(epochs_filename, overwrite=True)
+        print("Saving epochs to %s" % epochs_filename)
     
     if do_autoreject:
         # Autoreject
@@ -101,14 +103,33 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
             epochs_ar_filename = os.path.join(
                 savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-epo.fif')
             epochs_ar.save(epochs_ar_filename, overwrite=True)
+            print("Saving epochs to %s" % epochs_ar_filename)
             reject_filename = os.path.join(
                 savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-reject-log.npz')
             reject_log.save(reject_filename, overwrite=True)
+            print("Saving reject log to %s" % reject_filename)
+
+    if export_to_eeglab:
+        # Export to EEGLAB .set format
+        eeglab_folder = os.path.join(savefile_path, "eeglab")
+        os.makedirs(eeglab_folder, exist_ok=True)
+
+        if do_autoreject:
+            # Export after autoreject
+            epochs_ar_filename_eeglab = os.path.join(
+                eeglab_folder, "sub" + str(sub_num).zfill(2) + '-epo.set')
+            epochs_ar.export(epochs_ar_filename_eeglab)
+            print("Saving epochs to %s" % epochs_ar_filename_eeglab)
+        else:
+            # Export before autoreject
+            epochs_filename_eeglab = os.path.join(
+                eeglab_folder, "sub" + str(sub_num).zfill(2) + '-before-reject-epo.set')
+            epochs.export(epochs_filename_eeglab)
+            print("Saving epochs to %s" % epochs_filename_eeglab)
 
 #
 # Show the result
 #
-
 
 def generate_evokes(processed_data_list: list, condition_list: list):
     import mne
@@ -143,7 +164,7 @@ def generate_mean_evokes(evokes):
     return mean_evokes
 
 
-def compare_evoke_wave(evokes, chan_name, vlines="auto"):
+def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
     import mne
     cond1 = list(evokes.keys())[0]
     cond2 = list(evokes.keys())[1]
@@ -156,18 +177,21 @@ def compare_evoke_wave(evokes, chan_name, vlines="auto"):
                                               vlines=vlines,
                                               legend='lower right',
                                               picks=roi, show_sensors='upper right',
+                                              show=show,
                                               ci=False,
+                                              axes=axes,
                                               colors=color_dict,
                                               linestyles=linestyle_dict,
                                               title=chan_name + " :  " + cond1 + ' vs. ' + cond2)
     return evoke_plot
 
 
-def show_difference_wave(evokes_diff, chan_name):
+def show_difference_wave(evokes_diff, chan_name, axes=None):
     import mne
     roi = [chan_name]
     difference_wave_plot = mne.viz.plot_compare_evokeds({'diff_evoke': evokes_diff},
                                                         picks=roi,
+                                                        axes=axes,
                                                         show_sensors='upper right',
                                                         combine='mean',
                                                         title=chan_name + "Difference Wave")
