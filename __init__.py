@@ -64,7 +64,9 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     muscle_indices, muscle_scores = ica.find_bads_muscle(
         raw, threshold=ica_z_thresh)
     ica.exclude = muscle_indices + eog_indices
-    ica.save(os.path.join(savefile_path, 'mne_fif', 'ICA', 'sub'+str(sub_num) + '-ica.fif'), overwrite=True)
+    ica_file_path = os.path.join(savefile_path, 'mne_fif', 'ICA', 'sub'+str(sub_num) + '-ica.fif')
+    os.makedirs(os.path.dirname(ica_file_path), exist_ok=True)
+    ica.save(ica_file_path, overwrite=True)
     ica_data = ica.apply(filter_data.copy())
 
     # Rereference
@@ -85,13 +87,15 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
                         baseline=(None, 0),  # reject=reject_para,
                         verbose=False, detrend=0, preload=True)
 
-    # Save epoch data without reject
+    # Save epoch data without autoreject
     if export_to_mne:
         epochs_filename = os.path.join(
             savefile_path, "mne_fif", "before_reject", "sub" + str(sub_num).zfill(2) + '-before-reject-epo.fif')
+        os.makedirs(os.path.dirname(epochs_filename), exist_ok=True)
         epochs.save(epochs_filename, overwrite=True)
         print("Saving epochs to %s" % epochs_filename)
     
+    # Save epoch data with autoreject
     if do_autoreject:
         # Autoreject
         ar = AutoReject(n_jobs=6)
@@ -102,30 +106,14 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
         if export_to_mne:
             epochs_ar_filename = os.path.join(
                 savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-epo.fif')
+            os.makedirs(os.path.dirname(epochs_ar_filename), exist_ok=True)
             epochs_ar.save(epochs_ar_filename, overwrite=True)
             print("Saving epochs to %s" % epochs_ar_filename)
             reject_filename = os.path.join(
                 savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-reject-log.npz')
+            os.makedirs(os.path.dirname(reject_filename), exist_ok=True)
             reject_log.save(reject_filename, overwrite=True)
             print("Saving reject log to %s" % reject_filename)
-
-    if export_to_eeglab:
-        # Export to EEGLAB .set format
-        eeglab_folder = os.path.join(savefile_path, "eeglab")
-        os.makedirs(eeglab_folder, exist_ok=True)
-
-        if do_autoreject:
-            # Export after autoreject
-            epochs_ar_filename_eeglab = os.path.join(
-                eeglab_folder, "sub" + str(sub_num).zfill(2) + '-epo.set')
-            epochs_ar.export(epochs_ar_filename_eeglab)
-            print("Saving epochs to %s" % epochs_ar_filename_eeglab)
-        else:
-            # Export before autoreject
-            epochs_filename_eeglab = os.path.join(
-                eeglab_folder, "sub" + str(sub_num).zfill(2) + '-before-reject-epo.set')
-            epochs.export(epochs_filename_eeglab)
-            print("Saving epochs to %s" % epochs_filename_eeglab)
 
 #
 # Show the result
