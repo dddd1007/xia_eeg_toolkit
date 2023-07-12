@@ -4,6 +4,7 @@ os.environ['OPENBLAS_NUM_THREADS'] = '6'
 from autoreject import (get_rejection_threshold, AutoReject)
 import mne
 import numpy as np
+from scipy.stats import ttest_rel
 
 # Parameters example
 # raw_data_path = "/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/input/eeg/sub1.cdt"
@@ -120,11 +121,10 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 #
 
 def generate_evokes(processed_data_list: list, condition_list: list):
-    import mne
     if len(condition_list) == 2:
         evokes = {}
-        for c in condition_list:
-            evokes[c] = [mne.read_epochs(d)[c].average()
+        for cond in condition_list:
+            evokes[ccond] = [mne.read_epochs(d)[cond].average()
                          for d in processed_data_list]
     elif len(condition_list) == 1:
         evokes = {}
@@ -135,7 +135,6 @@ def generate_evokes(processed_data_list: list, condition_list: list):
 
 
 def generate_diff_evokes(evokes):
-    import mne
     diff_evokes = []
     for i in range(len(evokes[list(evokes.keys())[0]])):
         diff_evokes.append(mne.combine_evoked(
@@ -144,7 +143,6 @@ def generate_diff_evokes(evokes):
 
 
 def generate_mean_evokes(evokes):
-    import mne
     mean_evokes = []
     for i in range(len(evokes[list(evokes.keys())[0]])):
         mean_evokes.append(mne.combine_evoked(
@@ -153,7 +151,6 @@ def generate_mean_evokes(evokes):
 
 
 def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
-    import mne
     cond1 = list(evokes.keys())[0]
     cond2 = list(evokes.keys())[1]
     roi = [chan_name]
@@ -175,7 +172,6 @@ def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
 
 
 def show_difference_wave(evokes_diff, chan_name, axes=None):
-    import mne
     roi = [chan_name]
     difference_wave_plot = mne.viz.plot_compare_evokeds({'diff_evoke': evokes_diff},
                                                         picks=roi,
@@ -187,9 +183,6 @@ def show_difference_wave(evokes_diff, chan_name, axes=None):
 
 
 def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window: list, direction: str, ch_name='eeg'):
-    from scipy.stats import ttest_rel
-    import numpy as np
-    import mne
     condition = condition_list[0]
     if ch_name == "eeg":
         ch_nums = 64
