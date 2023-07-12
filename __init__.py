@@ -120,19 +120,26 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 # Show the result
 #
 
-def generate_evokes(processed_data_list: list, condition_list: list):
-    if len(condition_list) == 2:
-        evokes = {}
-        for cond in condition_list:
-            evokes[ccond] = [mne.read_epochs(d)[cond].average()
-                         for d in processed_data_list]
-    elif len(condition_list) == 1:
-        evokes = {}
-        cond = condition_list[0]
-        evokes = [mne.read_epochs(d)[cond].average()
-                  for d in processed_data_list]
-    return evokes
+def load_data(processed_data_list: list):
+    import mne
+    data_cache = {}
+    for d in processed_data_list:
+        data_cache[d] = mne.read_epochs(d)
+    return data_cache
 
+def generate_evokes(data_cache: dict, condition_list: list):
+    evokes = {}
+    if len(condition_list) == 1:
+        cond = condition_list[0]
+        evokes = []
+        for d, epochs in data_cache.items():
+            evokes.append(epochs[cond].average())
+    else:
+        for cond in condition_list:
+            evokes[cond] = []
+            for d, epochs in data_cache.items():
+                evokes[cond].append(epochs[cond].average())
+    return evokes
 
 def generate_diff_evokes(evokes):
     diff_evokes = []
