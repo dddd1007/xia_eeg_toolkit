@@ -121,6 +121,15 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 #
 
 def load_data(processed_data_list: list):
+    """
+    This function loads a list of file paths and reads each file into an mne.Epochs object.
+ 
+    Args:
+        processed_data_list: A list containing the paths of the files to be loaded.
+
+    Returns:
+        A dictionary where the keys are the file paths and the values are the corresponding mne.Epochs objects.
+    """
     import mne
     data_cache = {}
     for d in processed_data_list:
@@ -128,6 +137,17 @@ def load_data(processed_data_list: list):
     return data_cache
 
 def generate_evokes(data_cache: dict, condition_list: list):
+    """
+    This function generates ERPs from the loaded data according to the given condition list.
+
+    Args:
+        data_cache: A dictionary where the keys are the file paths and the values are the corresponding mne.Epochs objects.
+        condition_list: A list containing the conditions to be processed.
+
+    Returns:
+        If the condition list has only one element, it returns a list where each element is the ERP corresponding to the given condition.
+        If the condition list has more than one element, it returns a dictionary where the keys are the conditions and the values are a list where each element is the ERP corresponding to that condition.
+    """
     evokes = {}
     if len(condition_list) == 1:
         cond = condition_list[0]
