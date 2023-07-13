@@ -210,7 +210,6 @@ def show_difference_wave(evokes_diff, chan_name, axes=None):
 
 
 def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window: list, direction: str, ch_name='eeg'):
-    condition = condition_list[0]
     if ch_name == "eeg":
         ch_nums = 64
     else:
