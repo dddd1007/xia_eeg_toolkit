@@ -20,7 +20,8 @@ setup(
         'pandas',
         'mne',
         'toml',
-        'matlab',
+        'matlabengine',
         'matplotlib'
+        'multiprocessing'
     ],
 )

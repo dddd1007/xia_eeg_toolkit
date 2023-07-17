@@ -5,6 +5,7 @@ from autoreject import (get_rejection_threshold, AutoReject)
 import mne
 import numpy as np
 from scipy.stats import ttest_rel
+import multiprocessing
 
 # Parameters example
 # raw_data_path = "/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/input/eeg/sub1.cdt"
@@ -32,12 +33,26 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
                           tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30, ica_z_thresh=1.96, ref_channels='average',
                           export_to_mne=True, export_to_eeglab=True, do_autoreject=True):
 
+    # Message to begin
+    text = "Beginning preprocessing subject " + str(sub_num) + " ..."
+    text = "* " + text + " *"
+    border = "*" * len(text)
+
+    print("\033[91m")  # 开始红色文本
+    print(border)
+    print(text)
+    print(border)
+    print("\033[0m")  # 结束红色文本
+    
     # Import data
     raw = mne.io.read_raw_curry(raw_data_path, preload=True)
 
     # Set the channel type
-    raw.info['bads'].extend(rm_chans_list)
-    raw.set_channel_types(dict(zip(eog_chans, ['eog']*len(eog_chans))))
+    if rm_chans_list:
+        raw.info['bads'].extend(rm_chans_list)
+        raw.set_channel_types(dict(zip(eog_chans, ['eog']*len(eog_chans))))
+    else:
+        print("No channels to remove")
 
     # Set the montage
     montage_file = mne.channels.read_custom_montage(montage_file_path)
@@ -99,7 +114,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     # Save epoch data with autoreject
     if do_autoreject:
         # Autoreject
-        ar = AutoReject(n_jobs=6)
+        ar = AutoReject(n_jobs=multiprocessing.cpu_count())
         ar.fit(epochs)  # fit on a few epochs to save time
         epochs_ar, reject_log = ar.transform(epochs, return_log=True)
     
@@ -115,6 +130,16 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
             os.makedirs(os.path.dirname(reject_filename), exist_ok=True)
             reject_log.save(reject_filename, overwrite=True)
             print("Saving reject log to %s" % reject_filename)
+            
+    text = "Ending Preprocessing subject " + str(sub_num) + " ..."
+    text = "* " + text + " *"
+    border = "*" * len(text)
+
+    print("\033[92m")  # 开始红色文本
+    print(border)
+    print(text)
+    print(border)
+    print("\033[0m")  # 结束红色文本
 
 #
 # Show the result
