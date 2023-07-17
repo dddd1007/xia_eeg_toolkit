@@ -1,6 +1,4 @@
 import os
-os.environ['OPENBLAS_NUM_THREADS'] = '6'
-
 from autoreject import (get_rejection_threshold, AutoReject)
 import mne
 import numpy as np
