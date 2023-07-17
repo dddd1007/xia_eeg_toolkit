@@ -65,14 +65,14 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     # filter_data.drop_channels(rm_chans_list)
 
     # Filter the data
-    filter_data.filter(l_freq, h_freq, n_jobs=6)
+    filter_data.filter(l_freq, h_freq, n_jobs=multiprocessing.cpu_count())
 
     # prepare for ICA
     # reject_para = get_rejection_threshold(epochs_forica)
 
     # compute ICA
     ica = mne.preprocessing.ICA(n_components=.999, method='picard')
-    ica.fit(raw)
+    ica.fit(filter_data)
 
     # Exclude blink artifact components
     eog_indices, eog_scores = ica.find_bads_eog(
@@ -83,7 +83,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     ica_file_path = os.path.join(savefile_path, 'mne_fif', 'ICA', 'sub'+str(sub_num) + '-ica.fif')
     os.makedirs(os.path.dirname(ica_file_path), exist_ok=True)
     ica.save(ica_file_path, overwrite=True)
-    ica_data = ica.apply(filter_data.copy())
+    ica_data = ica.apply(filter_data)
 
     # Rereference
     ica_data.set_eeg_reference(ref_channels)
