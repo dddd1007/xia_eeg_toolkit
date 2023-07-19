@@ -202,7 +202,7 @@ def generate_mean_evokes(evokes):
     return mean_evokes
 
 
-def compare_evoke_wave(evokes, chan_name, vlines="auto", ci=True, show=False, axes=None):
+def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
     cond1 = list(evokes.keys())[0]
     cond2 = list(evokes.keys())[1]
     roi = [chan_name]
@@ -215,7 +215,7 @@ def compare_evoke_wave(evokes, chan_name, vlines="auto", ci=True, show=False, ax
                                               legend='lower right',
                                               picks=roi, show_sensors='upper right',
                                               show=show,
-                                              ci=ci,
+                                              ci=False,
                                               axes=axes,
                                               colors=color_dict,
                                               linestyles=linestyle_dict,
