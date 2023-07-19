@@ -219,7 +219,7 @@ def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
                                               axes=axes,
                                               colors=color_dict,
                                               linestyles=linestyle_dict,
-                                              title=chan_name + " :  " + cond1 + 
+                                              title=chan_name + " :  " + cond1 +
                                               ' vs. ' + cond2)
     return evoke_plot
 
@@ -235,31 +235,26 @@ def show_difference_wave(evokes_diff, chan_name, axes=None):
     return difference_wave_plot
 
 
-def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window: list, 
+def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list, 
                    direction: str, ch_name='eeg'):
     if ch_name == "eeg":
         ch_nums = 64
     else:
         ch_nums = 1
+
     # condition 1
     condition = condition_list[0]
-    cond1_array = np.zeros((ch_nums, len(processed_data_list)))
-    for i in range(len(processed_data_list)):
-        epochs = mne.read_epochs(processed_data_list[i])[condition]
-        if ch_name != "eeg":
-            epochs.pick_channels([ch_name])
-        evoke_data = epochs.average().get_data(tmin=time_window[0], tmax=time_window[1])
+    cond1_array = np.zeros((ch_nums, len(data_cache)))
+    for i, processed_data in enumerate(data_cache.values()):
+        evoke_data = processed_data[condition].average().get_data(tmin=time_window[0], tmax=time_window[1])
         evoke_mean = evoke_data.mean(axis=1)
         cond1_array[:, i] = evoke_mean
 
     # condition 2
     condition = condition_list[1]
-    cond2_array = np.zeros((ch_nums, len(processed_data_list)))
-    for i in range(len(processed_data_list)):
-        epochs = mne.read_epochs(processed_data_list[i])[condition]
-        if ch_name != "eeg":
-            epochs.pick_channels([ch_name])
-        evoke_data = epochs.average().get_data(tmin=time_window[0], tmax=time_window[1])
+    cond2_array = np.zeros((ch_nums, len(data_cache)))
+    for i, processed_data in enumerate(data_cache.values()):
+        evoke_data = processed_data[condition].average().get_data(tmin=time_window[0], tmax=time_window[1])
         evoke_mean = evoke_data.mean(axis=1)
         cond2_array[:, i] = evoke_mean
 
@@ -279,8 +274,8 @@ def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window:
                            ci_95, tt_result.pvalue < 0.05])
 
     if ch_name == "eeg":
-        chan_name = mne.read_epochs(processed_data_list[i])[
-            condition].info['ch_names'][:64]
+        # Just take the channel names from the last processed data
+        chan_name = list(processed_data[condition].info['ch_names'][:64])
     else:
         chan_name = [ch_name]
 
