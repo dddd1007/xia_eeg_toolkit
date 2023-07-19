@@ -237,9 +237,6 @@ def show_difference_wave(evokes_diff, chan_name, axes=None):
 
 def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
                    direction: str, ch_name='eeg'):
-    if not data_cache:
-        raise ValueError("data_cache cannot be empty")
-
     if ch_name == "eeg":
         ch_nums = 64
     else:
@@ -253,7 +250,7 @@ def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
         if ch_name != "eeg":
             evoke_data = evoke_data.pick_channels([ch_name])
         evoke_data = evoke_data.get_data(tmin=time_window[0], tmax=time_window[1])
-        evoke_mean = evoke_data.mean(axis=-1)  # take the mean across time
+        evoke_mean = evoke_data.mean() if ch_name != "eeg" else evoke_data.mean(axis=1)
         cond1_array[:, i] = evoke_mean
 
     # condition 2
@@ -264,7 +261,7 @@ def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
         if ch_name != "eeg":
             evoke_data = evoke_data.pick_channels([ch_name])
         evoke_data = evoke_data.get_data(tmin=time_window[0], tmax=time_window[1])
-        evoke_mean = evoke_data.mean(axis=-1)  # take the mean across time
+        evoke_mean = evoke_data.mean() if ch_name != "eeg" else evoke_data.mean(axis=1)
         cond2_array[:, i] = evoke_mean
 
     # ttest
@@ -285,12 +282,11 @@ def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
     if ch_name == "eeg":
         # Just take the channel names from the last processed data
         chan_name = list(processed_data[condition].info['ch_names'][:64])
-        assert list(processed_data[condition].info['ch_names'][:ch_nums]) == chan_name
     else:
         chan_name = [ch_name]
 
     df = pd.DataFrame(tt_results, columns=['T-Statistic', 'P-Value',
-                                           '95% CI Lower', '95% CI Upper',
+                                           '95% CI Lower', '95% CI Upper', 
                                            'Significant'])
     df.index = chan_name
 
