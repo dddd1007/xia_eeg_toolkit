@@ -30,7 +30,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path,
     print(text)
     print(border)
     print("\033[0m")  # 结束红色文本
-    
+
     # Import data
     raw = mne.io.read_raw_curry(raw_data_path, preload=True)
 
