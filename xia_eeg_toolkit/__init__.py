@@ -245,8 +245,10 @@ def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window:
     condition = condition_list[0]
     cond1_array = np.zeros((ch_nums, len(processed_data_list)))
     for i in range(len(processed_data_list)):
-        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average(
-        ).get_data(tmin=time_window[0], tmax=time_window[1])
+        epochs = mne.read_epochs(processed_data_list[i])[condition]
+        if ch_name != "eeg":
+            epochs.pick_channels([ch_name])
+        evoke_data = epochs.average().get_data(tmin=time_window[0], tmax=time_window[1])
         evoke_mean = evoke_data.mean(axis=1)
         cond1_array[:, i] = evoke_mean
 
@@ -254,16 +256,18 @@ def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window:
     condition = condition_list[1]
     cond2_array = np.zeros((ch_nums, len(processed_data_list)))
     for i in range(len(processed_data_list)):
-        evoke_data = mne.read_epochs(processed_data_list[i])[condition].average(
-        ).get_data(tmin=time_window[0], tmax=time_window[1])
+        epochs = mne.read_epochs(processed_data_list[i])[condition]
+        if ch_name != "eeg":
+            epochs.pick_channels([ch_name])
+        evoke_data = epochs.average().get_data(tmin=time_window[0], tmax=time_window[1])
         evoke_mean = evoke_data.mean(axis=1)
         cond2_array[:, i] = evoke_mean
 
     # ttest
     tt_results = []
     for chan_num in range(cond1_array.shape[0]):
-        cond1_data = cond1_array[chan_num - 1, :]
-        cond2_data = cond2_array[chan_num - 1, :]
+        cond1_data = cond1_array[chan_num, :]
+        cond2_data = cond2_array[chan_num, :]
         tt_result = ttest_rel(cond1_data, cond2_data, alternative=direction)
 
         # 计算置信区间
@@ -276,9 +280,9 @@ def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window:
 
     if ch_name == "eeg":
         chan_name = mne.read_epochs(processed_data_list[i])[
-            condition].info['ch_names'][0:64]
+            condition].info['ch_names'][:64]
     else:
-        chan_name = ch_name
+        chan_name = [ch_name]
 
     df = pd.DataFrame(tt_results, columns=['T-Statistic', 'P-Value',
                                            '95% CI', 'Significant'])
