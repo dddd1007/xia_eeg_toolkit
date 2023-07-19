@@ -1,35 +1,24 @@
 import os
-from autoreject import (get_rejection_threshold, AutoReject)
+from autoreject import AutoReject
 import mne
+import pandas as pd
 import numpy as np
 from scipy.stats import ttest_rel
+from scipy.stats import t, sem
 import multiprocessing
-
-# Parameters example
-# raw_data_path = "/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/input/eeg/sub1.cdt"
-# savefile_path = "/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/output"
-# montage_file_path ="/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/resource/ch_loc_export_from_eeglab.loc"
-# event_file_path = "/Users/dddd1007/research/Project4_EEG_Volatility_to_Control/data/output/exp_event_file/sub1_new_event_file_mne_eve.txt"
-# rm_chans_list = ['F1', 'F5', 'CP3']
-# input_event_dict = {31: 'con/MC/s', 32: 'inc/MC/s', 33: 'con/MI/s', 34: 'inc/MI/s',
-#                     41: 'con/MC/v', 42: 'inc/MC/v', 43: 'con/MI/v', 44: 'inc/MI/v',
-#                     98: 'corr_resp', 99: 'wrong_resp'}
-# eog_chans = ['HEO', 'VEO']
-# sub_num = 1
-# tmin = -0.3
-# tmax=1.2
-# l_freq=1
-# h_freq=30
-# ica_z_thresh = 1.96
 
 #
 # Preprocess EEG data
 #
 
-def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, savefile_path,
-                          input_event_dict: dict, rm_chans_list: list, eog_chans: list, sub_num: int,
-                          tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30, ica_z_thresh=1.96, ref_channels='average',
-                          export_to_mne=True, export_to_eeglab=True, do_autoreject=True):
+def preprocess_epoch_data(raw_data_path, montage_file_path,
+                          event_file_path, savefile_path,
+                          input_event_dict: dict, rm_chans_list: list,
+                          eog_chans: list, sub_num: int,
+                          tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30,
+                          ica_z_thresh=1.96, ref_channels='average',
+                          export_to_mne=True, export_to_eeglab=True,
+                          do_autoreject=True):
 
     # Message to begin
     text = "Beginning preprocessing subject " + str(sub_num) + " ..."
@@ -78,7 +67,8 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     muscle_indices, muscle_scores = ica.find_bads_muscle(
         raw, threshold=ica_z_thresh)
     ica.exclude = muscle_indices + eog_indices
-    ica_file_path = os.path.join(savefile_path, 'mne_fif', 'ICA', 'sub'+str(sub_num) + '-ica.fif')
+    ica_file_path = os.path.join(savefile_path, 'mne_fif', 'ICA', 'sub'+str(sub_num) + 
+                                 '-ica.fif')
     os.makedirs(os.path.dirname(ica_file_path), exist_ok=True)
     ica.save(ica_file_path, overwrite=True)
     ica_data = ica.apply(filter_data)
@@ -104,7 +94,8 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     # Save epoch data without autoreject
     if export_to_mne:
         epochs_filename = os.path.join(
-            savefile_path, "mne_fif", "before_reject", "sub" + str(sub_num).zfill(2) + '-before-reject-epo.fif')
+            savefile_path, "mne_fif", "before_reject", "sub" + str(sub_num).zfill(2) + 
+            '-before-reject-epo.fif')
         os.makedirs(os.path.dirname(epochs_filename), exist_ok=True)
         epochs.save(epochs_filename, overwrite=True)
         print("Saving epochs to %s" % epochs_filename)
@@ -115,20 +106,22 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
         ar = AutoReject(n_jobs=multiprocessing.cpu_count())
         ar.fit(epochs)  # fit on a few epochs to save time
         epochs_ar, reject_log = ar.transform(epochs, return_log=True)
-    
+
         # Save rejected data
         if export_to_mne:
             epochs_ar_filename = os.path.join(
-                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-epo.fif')
+                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) +
+                '-epo.fif')
             os.makedirs(os.path.dirname(epochs_ar_filename), exist_ok=True)
             epochs_ar.save(epochs_ar_filename, overwrite=True)
             print("Saving epochs to %s" % epochs_ar_filename)
             reject_filename = os.path.join(
-                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) + '-reject-log.npz')
+                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) +
+                '-reject-log.npz')
             os.makedirs(os.path.dirname(reject_filename), exist_ok=True)
             reject_log.save(reject_filename, overwrite=True)
             print("Saving reject log to %s" % reject_filename)
-            
+
     text = "Ending Preprocessing subject " + str(sub_num) + " ..."
     text = "* " + text + " *"
     border = "*" * len(text)
@@ -145,13 +138,15 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 
 def load_data(processed_data_list: list):
     """
-    This function loads a list of file paths and reads each file into an mne.Epochs object.
+    This function loads a list of file paths and reads each file into an mne.Epochs 
+    object.
  
     Args:
         processed_data_list: A list containing the paths of the files to be loaded.
 
     Returns:
-        A dictionary where the keys are the file paths and the values are the corresponding mne.Epochs objects.
+        A dictionary where the keys are the file paths and the values are the 
+        corresponding mne.Epochs objects.
     """
     import mne
     data_cache = {}
@@ -161,15 +156,20 @@ def load_data(processed_data_list: list):
 
 def generate_evokes(data_cache: dict, condition_list: list):
     """
-    This function generates ERPs from the loaded data according to the given condition list.
+    This function generates ERPs from the loaded data according to the given condition 
+    list.
 
     Args:
-        data_cache: A dictionary where the keys are the file paths and the values are the corresponding mne.Epochs objects.
+        data_cache: A dictionary where the keys are the file paths and the values are 
+        the corresponding mne.Epochs objects.
         condition_list: A list containing the conditions to be processed.
 
     Returns:
-        If the condition list has only one element, it returns a list where each element is the ERP corresponding to the given condition.
-        If the condition list has more than one element, it returns a dictionary where the keys are the conditions and the values are a list where each element is the ERP corresponding to that condition.
+        If the condition list has only one element, it returns a list where each element 
+        is the ERP corresponding to the given condition.
+        If the condition list has more than one element, it returns a dictionary where 
+        the keys are the conditions and the values are a list where each element is the 
+        ERP corresponding to that condition.
     """
     evokes = {}
     if len(condition_list) == 1:
@@ -188,7 +188,8 @@ def generate_diff_evokes(evokes):
     diff_evokes = []
     for i in range(len(evokes[list(evokes.keys())[0]])):
         diff_evokes.append(mne.combine_evoked(
-            [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], weights=[1, -1]))
+            [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], 
+            weights=[1, -1]))
     return diff_evokes
 
 
@@ -196,7 +197,8 @@ def generate_mean_evokes(evokes):
     mean_evokes = []
     for i in range(len(evokes[list(evokes.keys())[0]])):
         mean_evokes.append(mne.combine_evoked(
-            [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], weights='nave'))
+            [evokes[list(evokes.keys())[0]][i], evokes[list(evokes.keys())[1]][i]], 
+            weights='nave'))
     return mean_evokes
 
 
@@ -217,7 +219,8 @@ def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
                                               axes=axes,
                                               colors=color_dict,
                                               linestyles=linestyle_dict,
-                                              title=chan_name + " :  " + cond1 + ' vs. ' + cond2)
+                                              title=chan_name + " :  " + cond1 + 
+                                              ' vs. ' + cond2)
     return evoke_plot
 
 
@@ -232,7 +235,8 @@ def show_difference_wave(evokes_diff, chan_name, axes=None):
     return difference_wave_plot
 
 
-def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window: list, direction: str, ch_name='eeg'):
+def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window: list, 
+                   direction: str, ch_name='eeg'):
     if ch_name == "eeg":
         ch_nums = 64
     else:
@@ -256,12 +260,19 @@ def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window:
         cond2_array[:, i] = evoke_mean
 
     # ttest
-    tt_results = np.zeros(cond1_array.shape[0])
+    tt_results = []
     for chan_num in range(cond1_array.shape[0]):
         cond1_data = cond1_array[chan_num - 1, :]
         cond2_data = cond2_array[chan_num - 1, :]
-        foo = ttest_rel(cond1_data, cond2_data, alternative=direction)
-        tt_results[chan_num - 1] = foo[1]
+        tt_result = ttest_rel(cond1_data, cond2_data, alternative=direction)
+
+        # 计算置信区间
+        se_diff = sem(cond1_data - cond2_data)
+        df = len(cond1_data) - 1
+        ci_95 = se_diff * np.array(t.interval(0.95, df))
+
+        tt_results.append([tt_result.statistic, tt_result.pvalue,
+                           ci_95, tt_result.pvalue < 0.05])
 
     if ch_name == "eeg":
         chan_name = mne.read_epochs(processed_data_list[i])[
@@ -269,6 +280,26 @@ def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window:
     else:
         chan_name = ch_name
 
-    tt_results_dict = dict(zip(chan_name, tt_results))
+    df = pd.DataFrame(tt_results, columns=['T-Statistic', 'P-Value',
+                                           '95% CI', 'Significant'])
+    df.index = chan_name
 
-    return tt_results_dict
+    return df
+
+    # # ttest
+    # tt_results = np.zeros(cond1_array.shape[0])
+    # for chan_num in range(cond1_array.shape[0]):
+    #     cond1_data = cond1_array[chan_num - 1, :]
+    #     cond2_data = cond2_array[chan_num - 1, :]
+    #     foo = ttest_rel(cond1_data, cond2_data, alternative=direction)
+    #     tt_results[chan_num - 1] = foo[1]
+
+    # if ch_name == "eeg":
+    #     chan_name = mne.read_epochs(processed_data_list[i])[
+    #         condition].info['ch_names'][0:63]
+    # else:
+    #     chan_name = ch_name
+
+    # tt_results_dict = dict(zip(chan_name, tt_results))
+
+    # return tt_results_dict
