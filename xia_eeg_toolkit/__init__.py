@@ -276,7 +276,7 @@ def calc_erp_ttest(processed_data_list: list, condition_list: list, time_window:
 
     if ch_name == "eeg":
         chan_name = mne.read_epochs(processed_data_list[i])[
-            condition].info['ch_names'][0:63]
+            condition].info['ch_names'][0:64]
     else:
         chan_name = ch_name
 
