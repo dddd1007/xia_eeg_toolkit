@@ -202,7 +202,7 @@ def generate_mean_evokes(evokes):
     return mean_evokes
 
 
-def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
+def compare_evoke_wave(evokes, chan_name, vlines="auto", ci=True, show=False, axes=None):
     cond1 = list(evokes.keys())[0]
     cond2 = list(evokes.keys())[1]
     roi = [chan_name]
@@ -215,7 +215,7 @@ def compare_evoke_wave(evokes, chan_name, vlines="auto", show=False, axes=None):
                                               legend='lower right',
                                               picks=roi, show_sensors='upper right',
                                               show=show,
-                                              ci=False,
+                                              ci=ci,
                                               axes=axes,
                                               colors=color_dict,
                                               linestyles=linestyle_dict,
@@ -237,6 +237,9 @@ def show_difference_wave(evokes_diff, chan_name, axes=None):
 
 def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
                    direction: str, ch_name='eeg'):
+    if not data_cache:
+        raise ValueError("data_cache cannot be empty")
+
     if ch_name == "eeg":
         ch_nums = 64
     else:
@@ -250,7 +253,7 @@ def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
         if ch_name != "eeg":
             evoke_data = evoke_data.pick_channels([ch_name])
         evoke_data = evoke_data.get_data(tmin=time_window[0], tmax=time_window[1])
-        evoke_mean = evoke_data.mean(axis=1)
+        evoke_mean = evoke_data.mean(axis=-1)  # take the mean across time
         cond1_array[:, i] = evoke_mean
 
     # condition 2
@@ -261,7 +264,7 @@ def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
         if ch_name != "eeg":
             evoke_data = evoke_data.pick_channels([ch_name])
         evoke_data = evoke_data.get_data(tmin=time_window[0], tmax=time_window[1])
-        evoke_mean = evoke_data.mean(axis=1)
+        evoke_mean = evoke_data.mean(axis=-1)  # take the mean across time
         cond2_array[:, i] = evoke_mean
 
     # ttest
@@ -282,11 +285,12 @@ def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
     if ch_name == "eeg":
         # Just take the channel names from the last processed data
         chan_name = list(processed_data[condition].info['ch_names'][:64])
+        assert list(processed_data[condition].info['ch_names'][:ch_nums]) == chan_name
     else:
         chan_name = [ch_name]
 
     df = pd.DataFrame(tt_results, columns=['T-Statistic', 'P-Value',
-                                           '95% CI Lower', '95% CI Upper', 
+                                           '95% CI Lower', '95% CI Upper',
                                            'Significant'])
     df.index = chan_name
 
