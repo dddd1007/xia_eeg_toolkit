@@ -1,11 +1,16 @@
 import os
 from autoreject import AutoReject
 import mne
+from mne.time_frequency import (
+    tfr_multitaper,
+    tfr_stockwell,
+)
 import pandas as pd
 import numpy as np
 from scipy.stats import ttest_rel
 from scipy.stats import t, sem
 import multiprocessing
+
 
 #
 # Preprocess EEG data
@@ -286,8 +291,27 @@ def calc_erp_ttest(data_cache: dict, condition_list: list, time_window: list,
         chan_name = [ch_name]
 
     df = pd.DataFrame(tt_results, columns=['T-Statistic', 'P-Value',
-                                           '95% CI Lower', '95% CI Upper', 
+                                           '95% CI Lower', '95% CI Upper',
                                            'Significant'])
     df.index = chan_name
 
     return df
+
+def compute_power_and_create_dataframe(evokes, chan, freqs, n_cycles, time_bandwidth,
+                                       type_label):
+    power = tfr_multitaper(
+        evokes.copy().pick(chan),
+        freqs,
+        n_cycles,
+        time_bandwidth=time_bandwidth,
+        return_itc=False,
+    )
+    power_mean = power.data.mean(axis=1)
+    power_data = pd.DataFrame(
+        {
+            "time": power.times,
+            "power": power_mean[0].tolist(),
+            "type": type_label,
+        }
+    )
+    return power_data
