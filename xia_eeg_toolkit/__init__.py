@@ -11,7 +11,6 @@ from scipy.stats import ttest_rel
 from scipy.stats import t, sem
 import multiprocessing
 
-
 #
 # Preprocess EEG data
 #
