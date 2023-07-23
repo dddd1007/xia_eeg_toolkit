@@ -62,8 +62,13 @@ def preprocess_epoch_data(raw_data_path, montage_file_path,
     # reject_para = get_rejection_threshold(epochs_forica)
 
     # compute ICA
-    ica = mne.preprocessing.ICA(n_components=.999, method='picard')
-    ica.fit(filter_data)
+    try:
+        ica = mne.preprocessing.ICA(n_components=.999, method='picard')
+        ica.fit(filter_data)
+    except RuntimeError:
+        print("Error encountered with n_components=0.999, trying with n_components=0.9")
+        ica = mne.preprocessing.ICA(n_components=0.9, method='picard')
+        ica.fit(filter_data)
 
     # Exclude blink artifact components
     eog_indices, eog_scores = ica.find_bads_eog(
