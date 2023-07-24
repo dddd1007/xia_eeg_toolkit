@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import ttest_rel
 from scipy.stats import t, sem
-import tqdm
+from tqdm import tqdm
 import mne
 
 def load_data(processed_data_list: list):
