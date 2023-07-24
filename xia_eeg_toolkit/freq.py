@@ -276,9 +276,9 @@ def anova_power_over_all(power_all_subjects, conditions, anova_time_window):
     power_sub_list = list(power_all_subjects.keys())
     avg_power_data = [
         calculate_single_subject_power(
-            power_all_subjects, sub_i, conditions, anova_time_window
+            power_all_subjects, sub_key, conditions, anova_time_window
         )
-        for sub_i in range(len(power_sub_list))
+        for sub_key in power_sub_list
     ]
 
     # Create the DataFrame
