@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from statsmodels.stats.anova import AnovaRM
 import pandas as pd
 from scipy.stats import ttest_rel
-
+mne.set_log_level('WARNING')
 
 def perform_time_frequency_analysis(
     input_data, conditions, frequency_band, channel, time_window

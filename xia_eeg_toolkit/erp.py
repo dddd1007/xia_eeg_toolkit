@@ -5,6 +5,7 @@ from scipy.stats import ttest_rel
 from scipy.stats import t, sem
 from tqdm import tqdm
 import mne
+mne.set_log_level('WARNING')
 
 def load_data(processed_data_list: list):
     """
