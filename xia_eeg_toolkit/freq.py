@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from statsmodels.stats.anova import AnovaRM
 import pandas as pd
 from scipy.stats import ttest_rel
+from tqdm.autonotebook import tqdm
 mne.set_log_level('WARNING')
 
 def perform_time_frequency_analysis(
@@ -208,9 +209,10 @@ def calculate_time_frequency_for_all(
     """
     # Perform the time-frequency analysis for each subject
     power_all_subjects = {}
-    for subject, epochs in data_cache.items():
+    for subject in tqdm(data_cache.keys()):
+        print(f"Processing subject: {subject}\r", end="")
         power_all_subjects[subject] = perform_time_frequency_analysis(
-            epochs, conditions, frequency_band, channel, time_window
+            data_cache[subject], conditions, frequency_band, channel, time_window
         )
     return power_all_subjects
 
@@ -278,7 +280,7 @@ def anova_power_over_all(power_all_subjects, conditions, anova_time_window):
         calculate_single_subject_power(
             power_all_subjects, sub_key, conditions, anova_time_window
         )
-        for sub_key in power_sub_list
+        for sub_key in tqdm(power_sub_list)  # Add progress bar here
     ]
 
     # Create the DataFrame
