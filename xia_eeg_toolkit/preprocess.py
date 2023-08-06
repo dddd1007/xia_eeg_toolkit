@@ -1,130 +1,98 @@
-import os
-from autoreject import AutoReject
-import mne
 import multiprocessing
+import os
 
-def preprocess_epoch_data(raw_data_path, montage_file_path,
-                          event_file_path, savefile_path,
-                          input_event_dict: dict, rm_chans_list: list,
-                          eog_chans: list, sub_num: int,
-                          tmin=-0.3, tmax=1.2, l_freq=1, h_freq=30,
-                          ica_z_thresh=1.96, ref_channels='average',
-                          export_to_mne=True, export_to_eeglab=True,
-                          do_autoreject=True):
+import mne
+from autoreject import AutoReject
 
-    # Message to begin
-    text = "Beginning preprocessing subject " + str(sub_num) + " ..."
-    text = "* " + text + " *"
+
+def print_message(message, color_code):
+    """Helper function to print colored messages with borders."""
+    text = f"* {message} *"
     border = "*" * len(text)
+    print(f"\033[{color_code}m{border}\n{text}\n{border}\033[0m")
 
-    print("\033[91m")  # 开始红色文本
-    print(border)
-    print(text)
-    print(border)
-    print("\033[0m")  # 结束红色文本
+
+def save_to_path(save_path, subfolder, filename, sub_num):
+    """Helper function to create file paths."""
+    file_path = os.path.join(save_path, "mne_fif", subfolder, f"sub{sub_num:02}-{filename}")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    return file_path
+
+
+def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, savefile_path,
+                          input_event_dict, rm_chans_list, eog_chans, sub_num, tmin=-0.3, tmax=1.2,
+                          l_freq=1, h_freq=30, ref_channels='average', ica=True, ica_z_thresh=1.96,
+                          auto_reject=True, export_to_mne=True):
+
+    print_message(f"Beginning preprocessing subject {sub_num} ...", "91")
 
     # Import data
     raw = mne.io.read_raw_curry(raw_data_path, preload=True)
 
-    # Set the channel type
-    if rm_chans_list:
-        raw.info['bads'].extend(rm_chans_list)
-        raw.set_channel_types(dict(zip(eog_chans, ['eog']*len(eog_chans))))
-    else:
-        print("No channels to remove")
-
-    # Set the montage
-    montage_file = mne.channels.read_custom_montage(montage_file_path)
-    raw.set_montage(montage_file)
-
-    # Set the preprocessing setting
-    filter_data = raw.copy()
-
-    # Remove channels which are not needed
-    # filter_data.drop_channels(rm_chans_list)
+    # Set channel types and montage
+    raw.info['bads'].extend(rm_chans_list or [])
+    raw.set_channel_types({chan: 'eog' for chan in eog_chans})
+    montage = mne.channels.read_custom_montage(montage_file_path)
+    raw.set_montage(montage)
 
     # Filter the data
-    filter_data.filter(l_freq, h_freq, n_jobs=multiprocessing.cpu_count())
+    filter_data = raw.filter(l_freq, h_freq, n_jobs=multiprocessing.cpu_count())
 
-    # prepare for ICA
-    # reject_para = get_rejection_threshold(epochs_forica)
+    # ICA processing
+    if ica:
+        print(" == Doing the ICA ==")
+        try:
+            ica_method = mne.preprocessing.ICA(n_components=.999, method='picard')
+            ica_method.fit(filter_data)
+        except RuntimeError:
+            print("Error encountered with n_components=0.999, trying with n_components=10")
+            ica_method = mne.preprocessing.ICA(n_components=10, method='picard')
+            ica_method.fit(filter_data)
 
-    # compute ICA
-    try:
-        ica = mne.preprocessing.ICA(n_components=.999, method='picard')
-        ica.fit(filter_data)
-    except RuntimeError:
-        print("Error encountered with n_components=0.999, trying with n_components=10")
-        ica = mne.preprocessing.ICA(n_components=10, method='picard')
-        ica.fit(filter_data)
+        eog_indices, _ = ica_method.find_bads_eog(raw, ch_name=['FP1', 'FP2', 'F8'], threshold=ica_z_thresh)
+        muscle_indices, _ = ica_method.find_bads_muscle(raw, threshold=ica_z_thresh)
+        ica_method.exclude = muscle_indices + eog_indices
 
-    # Exclude blink artifact components
-    eog_indices, eog_scores = ica.find_bads_eog(
-        raw, ch_name=['FP1', 'FP2', 'F8'], threshold=ica_z_thresh)
-    muscle_indices, muscle_scores = ica.find_bads_muscle(
-        raw, threshold=ica_z_thresh)
-    ica.exclude = muscle_indices + eog_indices
-    ica_file_path = os.path.join(savefile_path, 'mne_fif', 'ICA', 'sub'+str(sub_num) + 
-                                 '-ica.fif')
-    os.makedirs(os.path.dirname(ica_file_path), exist_ok=True)
-    ica.save(ica_file_path, overwrite=True)
-    ica_data = ica.apply(filter_data)
+        if export_to_mne:
+            ica_file_path = save_to_path(savefile_path, "ICA", "ica.fif", sub_num)
+            ica_method.save(ica_file_path, overwrite=True)
 
-    # Rereference
-    ica_data.set_eeg_reference(ref_channels)
+        ica_data = ica_method.apply(filter_data)
+        ica_data.set_eeg_reference(ref_channels)
+    else:
+        ica_data = filter_data
 
-    # Import Event
-    new_event = mne.read_events(event_file_path)
-    annot_from_events = mne.annotations_from_events(events=new_event,
-                                                    event_desc=input_event_dict,
-                                                    sfreq=raw.info['sfreq'],
-                                                    orig_time=raw.info['meas_date'])
-    ica_data.set_annotations(annot_from_events)
+    # Annotate with events
+    events = mne.read_events(event_file_path)
+    annotations = mne.annotations_from_events(events, event_desc=input_event_dict, sfreq=raw.info['sfreq'], orig_time=raw.info['meas_date'])
+    ica_data.set_annotations(annotations)
 
-    # Check the event in data
+    # Save the data before epoching
+    if export_to_mne:
+        save_path = save_to_path(savefile_path, "before_epoch", "after-filter.fif", sub_num)
+        ica_data.save(save_path, overwrite=True)
+
+    # Create epochs
     events, event_dict = mne.events_from_annotations(ica_data)
     ica_data.del_proj()
-    epochs = mne.Epochs(ica_data, events, event_dict, tmin, tmax,
-                        baseline=(None, 0),  # reject=reject_para,
-                        verbose=False, detrend=0, preload=True)
+    epochs = mne.Epochs(ica_data, events, event_dict, tmin, tmax, baseline=(None, 0), verbose=False, detrend=0, preload=True)
 
-    # Save epoch data without autoreject
+    # Save epochs before autoreject
     if export_to_mne:
-        epochs_filename = os.path.join(
-            savefile_path, "mne_fif", "before_reject", "sub" + str(sub_num).zfill(2) + 
-            '-before-reject-epo.fif')
-        os.makedirs(os.path.dirname(epochs_filename), exist_ok=True)
-        epochs.save(epochs_filename, overwrite=True)
-        print("Saving epochs to %s" % epochs_filename)
-    
-    # Save epoch data with autoreject
-    if do_autoreject:
-        # Autoreject
+        save_path = save_to_path(savefile_path, "before_reject", "before-reject-epo.fif", sub_num)
+        epochs.save(save_path, overwrite=True)
+
+    # Autoreject processing
+    if auto_reject:
+        print(" == Doing the Autoreject ==")
         ar = AutoReject(n_jobs=multiprocessing.cpu_count())
-        ar.fit(epochs)  # fit on a few epochs to save time
         epochs_ar, reject_log = ar.transform(epochs, return_log=True)
 
-        # Save rejected data
         if export_to_mne:
-            epochs_ar_filename = os.path.join(
-                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) +
-                '-epo.fif')
-            os.makedirs(os.path.dirname(epochs_ar_filename), exist_ok=True)
-            epochs_ar.save(epochs_ar_filename, overwrite=True)
-            print("Saving epochs to %s" % epochs_ar_filename)
-            reject_filename = os.path.join(
-                savefile_path, "mne_fif", "rejected", "sub" + str(sub_num).zfill(2) +
-                '-reject-log.npz')
-            os.makedirs(os.path.dirname(reject_filename), exist_ok=True)
-            reject_log.save(reject_filename, overwrite=True)
-            print("Saving reject log to %s" % reject_filename)
+            save_path = save_to_path(savefile_path, "rejected", "epo.fif", sub_num)
+            epochs_ar.save(save_path, overwrite=True)
 
-    text = "Ending Preprocessing subject " + str(sub_num) + " ..."
-    text = "* " + text + " *"
-    border = "*" * len(text)
+            reject_log_path = save_to_path(savefile_path, "rejected", "reject-log.npz", sub_num)
+            reject_log.save(reject_log_path, overwrite=True)
 
-    print("\033[92m")  # 开始红色文本
-    print(border)
-    print(text)
-    print(border)
-    print("\033[0m")  # 结束红色文本
+    print_message(f"Ending Preprocessing subject {sub_num} ...", "92")

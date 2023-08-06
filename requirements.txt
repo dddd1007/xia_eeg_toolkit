@@ -1,0 +1,9 @@
+numpy~=1.24.4
+setuptools~=68.0.0
+pandas~=2.0.3
+mne~=1.4.2
+scipy~=1.11.1
+tqdm~=4.65.0
+matplotlib~=3.7.2
+statsmodels~=0.14.0
+autoreject~=0.4.2
