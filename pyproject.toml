@@ -4,10 +4,10 @@ version = "0.1.0"
 description = ""
 authors = ["Xiaokai Xia <dddd1007@gmail.com>"]
 readme = "README.md"
-packages = [{include = "xia_eeg_toolkit"}]
+packages = [{ include = "xia_eeg_toolkit" }]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.8"
 
 
 [build-system]
