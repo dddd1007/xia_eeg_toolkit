@@ -3,7 +3,7 @@ import os
 
 import mne
 import numpy as np
-from autoreject import AutoReject, validation_curve
+from autoreject import AutoReject
 
 
 def print_message(message, color_code):
@@ -37,7 +37,8 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     # Set channel types and montage
     raw.info['bads'].extend(rm_chans_list or [])
     raw.set_channel_types({chan: 'eog' for chan in eog_chans})
-    montage = mne.channels.read_custom_montage(montage_file_path)
+    montage = mne.channels.read_custom_montage(montage_file_path,
+                                               ch_names=[ch for ch in raw.ch_names if ch not in ['HEO', 'VEO']])
     raw.set_montage(montage)
 
     # Filter the data
@@ -92,40 +93,29 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     if auto_reject:
         print(" == Doing the Autoreject ==")
 
-        ## Set the best parameters of the autoreject
         # Define the parameter range
         n_interpolates = np.array([1, 4, 32])
         consensus_percs = np.linspace(0, 1.0, 11)
 
-        # Use validation_curve to find the best parameters
-        mean_scores, _ = validation_curve(
-            AutoReject(), epochs,
-            param_name=['n_interpolates', 'consensus_percs'],
-            param_range=[n_interpolates, consensus_percs],
-            cv=5, n_jobs=multiprocessing.cpu_count()
-        )
+        # Initialize AutoReject object with parameter ranges
+        ar = AutoReject(n_interpolate=n_interpolates,
+                        n_jobs=multiprocessing.cpu_count(),
+                        verbose=True)
 
-        # Find the best parameters
-        best_idx = np.unravel_index(np.argmax(mean_scores), mean_scores.shape)
-        best_n_interpolate = n_interpolates[best_idx[1]]
-        best_consensus_perc = consensus_percs[best_idx[0]]
-
-        # Print the best parameters
-        print(f"Best n_interpolate: {best_n_interpolate}")
-        print(f"Best consensus_perc: {best_consensus_perc}")
-
-        # Use the best parameters in AutoReject
-        ar = AutoReject(n_interpolates=best_n_interpolate,
-                        consensus_percs=best_consensus_perc,
-                        n_jobs=multiprocessing.cpu_count())
+        # Fit the data (AutoReject will automatically choose the best parameters)
         ar.fit(epochs)
+
+        # Apply the automatic rejection
         epochs_ar, reject_log = ar.transform(epochs, return_log=True)
 
-        if export_to_mne:
-            save_path = save_to_path(savefile_path, "rejected", "epo.fif", sub_num)
-            epochs_ar.save(save_path, overwrite=True)
+        print(f"Best n_interpolate: {ar.n_interpolate_}")
+        print(f"Best consensus_perc: {ar.consensus_perc_}")
 
-            reject_log_path = save_to_path(savefile_path, "rejected", "reject-log.npz", sub_num)
-            reject_log.save(reject_log_path, overwrite=True)
+        if export_to_mne:
+                save_path = save_to_path(savefile_path, "rejected", "epo.fif", sub_num)
+                epochs_ar.save(save_path, overwrite=True)
+
+                reject_log_path = save_to_path(savefile_path, "rejected", "reject-log.npz", sub_num)
+                reject_log.save(reject_log_path, overwrite=True)
 
     print_message(f"Ending Preprocessing subject {sub_num} ...", "92")
