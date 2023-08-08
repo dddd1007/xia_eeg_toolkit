@@ -29,7 +29,10 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 
     # Import data
     raw = mne.io.read_raw_curry(raw_data_path, preload=True)
-    raw.drop_channels(['HL 1', 'HL 2', 'Trigger'])
+    channels_to_drop = ['HL 1', 'HL 2', 'Trigger']
+    for ch in channels_to_drop:
+        if ch in raw.ch_names:
+            raw.drop_channels([ch])
 
     # Set channel types and montage
     raw.info['bads'].extend(rm_chans_list or [])

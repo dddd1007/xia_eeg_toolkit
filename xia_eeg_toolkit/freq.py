@@ -1,10 +1,11 @@
+import matplotlib.pyplot as plt
 import mne
 import numpy as np
-import matplotlib.pyplot as plt
-from statsmodels.stats.anova import AnovaRM
 import pandas as pd
 from scipy.stats import ttest_rel
-from tqdm.autonotebook import tqdm
+from statsmodels.stats.anova import AnovaRM
+from tqdm import tqdm
+
 mne.set_log_level('WARNING')
 
 def perform_time_frequency_analysis(
