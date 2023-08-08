@@ -2,7 +2,8 @@ import multiprocessing
 import os
 
 import mne
-from autoreject import AutoReject
+import numpy as np
+from autoreject import AutoReject, validation_curve
 
 
 def print_message(message, color_code):
@@ -28,6 +29,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
 
     # Import data
     raw = mne.io.read_raw_curry(raw_data_path, preload=True)
+    raw.drop_channels(['HL 1', 'HL 2', 'Trigger'])
 
     # Set channel types and montage
     raw.info['bads'].extend(rm_chans_list or [])
@@ -49,7 +51,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
             ica_method = mne.preprocessing.ICA(n_components=10, method='picard')
             ica_method.fit(filter_data)
 
-        eog_indices, _ = ica_method.find_bads_eog(raw, ch_name=['FP1', 'FP2', 'F8'], threshold=ica_z_thresh)
+        eog_indices, _ = ica_method.find_bads_eog(raw, ch_name=['FP1', 'FP2', 'F8', 'HEO', 'VEO'], threshold=ica_z_thresh)
         muscle_indices, _ = ica_method.find_bads_muscle(raw, threshold=ica_z_thresh)
         ica_method.exclude = muscle_indices + eog_indices
 
@@ -66,6 +68,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     events = mne.read_events(event_file_path)
     annotations = mne.annotations_from_events(events, event_desc=input_event_dict, sfreq=raw.info['sfreq'], orig_time=raw.info['meas_date'])
     ica_data.set_annotations(annotations)
+    ica_data.drop_channels(['HEO', 'VEO'])
 
     # Save the data before epoching
     if export_to_mne:
@@ -85,7 +88,34 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     # Autoreject processing
     if auto_reject:
         print(" == Doing the Autoreject ==")
-        ar = AutoReject(n_jobs=multiprocessing.cpu_count())
+
+        ## Set the best parameters of the autoreject
+        # Define the parameter range
+        n_interpolates = np.array([1, 4, 32])
+        consensus_percs = np.linspace(0, 1.0, 11)
+
+        # Use validation_curve to find the best parameters
+        mean_scores, _ = validation_curve(
+            AutoReject(), epochs,
+            param_name=['n_interpolates', 'consensus_percs'],
+            param_range=[n_interpolates, consensus_percs],
+            cv=5, n_jobs=multiprocessing.cpu_count()
+        )
+
+        # Find the best parameters
+        best_idx = np.unravel_index(np.argmax(mean_scores), mean_scores.shape)
+        best_n_interpolate = n_interpolates[best_idx[1]]
+        best_consensus_perc = consensus_percs[best_idx[0]]
+
+        # Print the best parameters
+        print(f"Best n_interpolate: {best_n_interpolate}")
+        print(f"Best consensus_perc: {best_consensus_perc}")
+
+        # Use the best parameters in AutoReject
+        ar = AutoReject(n_interpolates=best_n_interpolate,
+                        consensus_percs=best_consensus_perc,
+                        n_jobs=multiprocessing.cpu_count())
+        ar.fit(epochs)
         epochs_ar, reject_log = ar.transform(epochs, return_log=True)
 
         if export_to_mne:

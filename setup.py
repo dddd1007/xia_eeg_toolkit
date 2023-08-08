@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='xia_eeg_toolkit',
-    version='0.1',
+    version='0.1.1',
     packages=find_packages(),
     url='https://github.com/dddd1007/xia_eeg_toolkit',
     author='Xia Xiaokai',
@@ -19,7 +19,8 @@ setup(
         'numpy',
         'pandas',
         'mne',
-        'toml',
-        'matplotlib'
+        'matplotlib',
+        'autoreject',
+        'python-picard',
     ],
 )
