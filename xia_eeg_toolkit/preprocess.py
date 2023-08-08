@@ -108,7 +108,6 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
         epochs_ar, reject_log = ar.transform(epochs, return_log=True)
 
         print(f"Best n_interpolate: {ar.n_interpolate_}")
-        print(f"Best consensus_perc: {ar.consensus_perc_}")
 
         if export_to_mne:
                 save_path = save_to_path(savefile_path, "rejected", "epo.fif", sub_num)
