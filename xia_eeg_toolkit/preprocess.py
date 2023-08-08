@@ -37,8 +37,7 @@ def preprocess_epoch_data(raw_data_path, montage_file_path, event_file_path, sav
     # Set channel types and montage
     raw.info['bads'].extend(rm_chans_list or [])
     raw.set_channel_types({chan: 'eog' for chan in eog_chans})
-    montage = mne.channels.read_custom_montage(montage_file_path,
-                                               ch_names=[ch for ch in raw.ch_names if ch not in ['HEO', 'VEO']])
+    montage = mne.channels.read_custom_montage(montage_file_path)
     raw.set_montage(montage)
 
     # Filter the data
