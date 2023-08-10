@@ -4,4 +4,4 @@ from .freq import perform_time_frequency_analysis, average_time_frequency_analys
     plot_avg_power, anova_power_over_all
 from .lrp import compute_lrp, compute_and_average_lrp, compute_group_average_lrp
 from .preprocess import preprocess_epoch_data
-from .single_trials import single_trial_analysis
+from .single_trials import single_trial_analysis, load_epochs, load_reject_log
