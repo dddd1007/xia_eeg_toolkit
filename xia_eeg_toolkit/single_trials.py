@@ -17,10 +17,10 @@ def load_reject_log(reject_log_filename):
     reject_log = np.load(reject_log_filename, allow_pickle=True)
     return reject_log["bad_epochs"]
 
-def load_sub_beh_data(all_beh_data, sub_num, remove_miss_trial=True):
+def load_sub_beh_data(all_beh_data, sub_num, remove_miss_trials=True):
     sub_beh_data = all_beh_data[all_beh_data['sub_num'] == sub_num].copy()
     sub_beh_data = sub_beh_data.reset_index(drop=True)
-    if remove_miss_trial:
+    if remove_miss_trials:
         sub_beh_data = sub_beh_data[pd.notna(sub_beh_data['rt'])]
         sub_beh_data = sub_beh_data.reset_index(drop=True)
     return sub_beh_data
