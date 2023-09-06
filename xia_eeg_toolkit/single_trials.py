@@ -7,18 +7,26 @@ from termcolor import colored
 from tqdm import tqdm
 
 
-def load_epochs(eeg_filename):
+def load_epochs(eeg_filename, resample=False, resample_freq=100):
     """
-    Load EEG epochs from a file.
+    Load EEG epochs from a file and optionally resample the data.
 
     Parameters:
     eeg_filename (str): Path to the EEG file.
+    resample (bool, optional): Whether to resample the data. Defaults to False.
+    resample_freq (int, optional): The frequency to resample the data to if resample is True. Defaults to 100.
 
     Returns:
     dict: A dictionary containing the ERP table and channel names.
     """
     print(f"读取脑电数据文件:\n {eeg_filename} ... \n")
-    data = mne.read_epochs(eeg_filename)
+    if resample:
+        print(f"重采样到 {resample_freq} Hz ... \n")
+        data = mne.read_epochs(eeg_filename).resample(resample_freq)
+        print(f"重采样完成！\n 新采样率为 {data.info['sfreq']} Hz \n")
+    else:
+        data = mne.read_epochs(eeg_filename)
+        print(f"数据采样率为 {data.info['sfreq']} Hz \n")
     ch_names = data.ch_names
     erp_table = data.to_data_frame()
     del data
