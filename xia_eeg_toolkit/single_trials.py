@@ -8,6 +8,15 @@ from tqdm import tqdm
 
 
 def load_epochs(eeg_filename):
+    """
+    Load EEG epochs from a file.
+
+    Parameters:
+    eeg_filename (str): Path to the EEG file.
+
+    Returns:
+    dict: A dictionary containing the ERP table and channel names.
+    """
     print(f"读取脑电数据文件:\n {eeg_filename} ... \n")
     data = mne.read_epochs(eeg_filename)
     ch_names = data.ch_names
@@ -20,12 +29,32 @@ def load_epochs(eeg_filename):
 
 
 def load_reject_log(reject_log_filename):
+    """
+    Load the reject log from a file.
+
+    Parameters:
+    reject_log_filename (str): Path to the reject log file.
+
+    Returns:
+    np.array: An array containing the bad epochs.
+    """
     print(f"读取剔除坏段文件:\n {reject_log_filename} ... \n")
     reject_log = np.load(reject_log_filename, allow_pickle=True)
     return reject_log["bad_epochs"]
 
 
 def load_sub_beh_data(all_beh_data, sub_num, remove_miss_trials=False):
+    """
+    Load subject behavior data.
+
+    Parameters:
+    all_beh_data (pd.DataFrame): DataFrame containing all behavior data.
+    sub_num (int): Subject number.
+    remove_miss_trials (bool, optional): Whether to remove missed trials. Defaults to False.
+
+    Returns:
+    pd.DataFrame: DataFrame containing the subject's behavior data.
+    """
     sub_beh_data = all_beh_data[all_beh_data["sub_num"] == sub_num].copy()
     sub_beh_data = sub_beh_data.reset_index(drop=True)
     if remove_miss_trials:
@@ -42,6 +71,20 @@ def single_trial_robust_regression(
     dummy_col="run_num",
     debug=False,
 ):
+    """
+    Perform robust regression on single trial data.
+
+    Parameters:
+    filtered_erp_table (pd.DataFrame): DataFrame containing the filtered ERP table.
+    ch_names (list): List of channel names.
+    indep_value (str): Independent variable.
+    other_dep_value (list, optional): List of other dependent variables. Defaults to ["stim_loc_num", "resp_num", "congruency_num"].
+    dummy_col (str, optional): Column to be dummy coded. Defaults to "run_num".
+    debug (bool, optional): Whether to print debug information. Defaults to False.
+
+    Returns:
+    pd.DataFrame: DataFrame containing the regression results.
+    """
     t_values = []
     p_values = []
     beta_values = []
@@ -106,6 +149,17 @@ def split_condition_column(
     target_col="condition",
     into_col=["type", "hand", "congruency", "prop", "volatility"],
 ):
+    """
+    Split the 'condition' column into multiple columns.
+
+    Parameters:
+    single_time_point_table (pd.DataFrame): DataFrame containing the single time point table.
+    target_col (str, optional): Target column to split. Defaults to "condition".
+    into_col (list, optional): List of new column names. Defaults to ["type", "hand", "congruency", "prop", "volatility"].
+
+    Returns:
+    pd.DataFrame: DataFrame with the 'condition' column split into multiple columns.
+    """
     # Check if 'condition' column exists in the DataFrame
     if target_col in single_time_point_table.columns:
         # Split 'condition' column and store the result in new columns
@@ -123,6 +177,16 @@ def split_condition_column(
 def select_erp_by_annotation(
     single_time_point_table, filtered_by={"type": ["corResp", "wrongResp"]}
 ):
+    """
+    Select ERP data by annotation.
+
+    Parameters:
+    single_time_point_table (pd.DataFrame): DataFrame containing the single time point table.
+    filtered_by (dict, optional): Dictionary specifying the filtering conditions. Defaults to {"type": ["corResp", "wrongResp"]}.
+
+    Returns:
+    pd.DataFrame: DataFrame containing the filtered ERP data.
+    """
     for key, values in filtered_by.items():
         filtered_erp_table = single_time_point_table[
             single_time_point_table[key].isin(values)
@@ -141,6 +205,22 @@ def validate_and_generate_regression_data(
     indep_value="bl_sr_pe",
     dummy_col="run_num",
 ):
+    """
+    Validate and generate regression data.
+
+    Parameters:
+    filtered_erp_table (pd.DataFrame): DataFrame containing the filtered ERP table.
+    sub_beh_data (pd.DataFrame): DataFrame containing the subject's behavior data.
+    reject_log (np.array): Array containing the reject log.
+    rt_col (str, optional): Column name for reaction time. Defaults to "rt".
+    valid_col (str, optional): Column name for validation. Defaults to "congruency".
+    other_dep_value (list, optional): List of other dependent variables. Defaults to ["stim_loc_num", "resp_num", "congruency_num"].
+    indep_value (str, optional): Independent variable. Defaults to "bl_sr_pe".
+    dummy_col (str, optional): Column to be dummy coded. Defaults to "run_num".
+
+    Returns:
+    pd.DataFrame: DataFrame containing the validated and generated regression data.
+    """
     erp_num = len(filtered_erp_table)
 
     # ====== Valid and combine beh and erp data =====
@@ -161,7 +241,7 @@ def validate_and_generate_regression_data(
     filtered_erp_table[extend_col] = matched_sub_beh_data[extend_col]
     filtered_erp_table["reject"] = reject_log[
         filtered_erp_table["epoch"].values
-    ].copy()
+    ]
 
     return filtered_erp_table
 
@@ -177,6 +257,23 @@ def perform_regression_and_add_metadata(
     if_reject,
     debug=False,
 ):
+    """
+    Perform regression and add metadata.
+
+    Parameters:
+    data (pd.DataFrame): DataFrame containing the data.
+    ch_names (list): List of channel names.
+    indep_value (str): Independent variable.
+    other_dep_value (list): List of other dependent variables.
+    dummy_col (str): Column to be dummy coded.
+    time_point (float): Time point.
+    sub_num (int): Subject number.
+    if_reject (str): Whether to reject.
+    debug (bool, optional): Whether to print debug information. Defaults to False.
+
+    Returns:
+    pd.DataFrame: DataFrame containing the regression results and metadata.
+    """
     result = single_trial_robust_regression(
         data,
         ch_names,
